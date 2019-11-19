@@ -302,6 +302,8 @@ func (r *ReconcileClusteragent) cleanUp(clusterAgent *appdynamicsv1alpha1.Cluste
 }
 
 func (r *ReconcileClusteragent) ensureConfigMap(clusterAgent *appdynamicsv1alpha1.Clusteragent, secret *corev1.Secret, create bool) error {
+	setClusterAgentConfigDefaults(clusterAgent)
+
 	err := r.ensureAgentMonConfig(clusterAgent)
 	if err != nil {
 		return err
@@ -377,6 +379,12 @@ func (r *ReconcileClusteragent) ensureAgentConfig(clusterAgent *appdynamicsv1alp
 	cm.Data["APPDYNAMICS_CONTROLLER_SSL_ENABLED"] = sslEnabled
 	cm.Data["APPDYNAMICS_CLUSTER_NAME"] = clusterAgent.Spec.AppName
 
+	cm.Data["APPDYNAMICS_CLUSTER_MONITORED_RESOURCES"] = strings.Join(clusterAgent.Spec.ResourcesToMonitor, ",")
+	cm.Data["APPDYNAMICS_CLUSTER_MONITORED_NAMESPACES"] = strings.Join(clusterAgent.Spec.NsToMonitor, ",")
+	cm.Data["APPDYNAMICS_CLUSTER_EVENT_UPLOAD_INTERVAL"] = strconv.Itoa(clusterAgent.Spec.EventUploadInterval)
+	cm.Data["APPDYNAMICS_CLUSTER_CONTAINER_REGISTRATION_INTERVAL"] = strconv.Itoa(clusterAgent.Spec.ContainerRegistrationInterval)
+	cm.Data["APPDYNAMICS_CLUSTER_HTTP_CLIENT_TIMEOUT_INTERVAL"] = strconv.Itoa(clusterAgent.Spec.HttpClientTimeout)
+
 	if create {
 		e := r.client.Create(context.TODO(), cm)
 		if e != nil {
@@ -395,15 +403,16 @@ func (r *ReconcileClusteragent) ensureAgentConfig(clusterAgent *appdynamicsv1alp
 }
 
 func (r *ReconcileClusteragent) ensureAgentMonConfig(clusterAgent *appdynamicsv1alpha1.Clusteragent) error {
-	if clusterAgent.Spec.MetricsSyncInterval == 0 {
-		clusterAgent.Spec.MetricsSyncInterval = 30
-	}
-	
 	yml := fmt.Sprintf(`metric-collection-interval-seconds: %d
+cluster-metric-collection-interval-seconds: %d
+metadata-collection-interval-seconds: %d
+container-registration-batch-size: %d
+container-registration-max-parallel-requests: %d
+pod-registration-batch-size: %d 		
 container-filter:
-  blacklisted-label:
-    appdynamics.exclude:
-      true`, clusterAgent.Spec.MetricsSyncInterval)
+%s`, clusterAgent.Spec.MetricsSyncInterval, clusterAgent.Spec.ClusterMetricsSyncInterval, clusterAgent.Spec.MetadataSyncInterval,
+		clusterAgent.Spec.ContainerBatchSize, clusterAgent.Spec.ContainerParallelRequestLimit, clusterAgent.Spec.PodBatchSize,
+		createContainerFilterString(clusterAgent))
 
 	cm := &corev1.ConfigMap{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: AGENT_MON_CONFIG_NAME, Namespace: clusterAgent.Namespace}, cm)
@@ -437,17 +446,6 @@ container-filter:
 }
 
 func (r *ReconcileClusteragent) ensureLogConfig(clusterAgent *appdynamicsv1alpha1.Clusteragent) error {
-	if clusterAgent.Spec.LogLevel == "" {
-		clusterAgent.Spec.LogLevel = "INFO"
-	}
-
-	if clusterAgent.Spec.LogFileSizeMb == 0 {
-		clusterAgent.Spec.LogFileSizeMb = 5
-	}
-	if clusterAgent.Spec.LogFileBackups == 0 {
-		clusterAgent.Spec.LogFileBackups = 3
-	}
-
 	yml := fmt.Sprintf(`log-level: %s
 max-filesize-mb: %d
 max-backups: %d
@@ -653,4 +651,106 @@ func (r *ReconcileClusteragent) restartAgent(clusterAgent *appdynamicsv1alpha1.C
 
 func labelsForClusteragent(clusterAgent *appdynamicsv1alpha1.Clusteragent) map[string]string {
 	return map[string]string{"name": "clusterAgent", "clusterAgent_cr": clusterAgent.Name}
+}
+
+func setClusterAgentConfigDefaults(clusterAgent *appdynamicsv1alpha1.Clusteragent) {
+	// bootstrap-config defaults
+	if clusterAgent.Spec.ResourcesToMonitor == nil {
+		clusterAgent.Spec.ResourcesToMonitor = []string{"Pod","ReplicaSet","Deployment","Event"}
+	}
+
+	if clusterAgent.Spec.NsToMonitor == nil {
+		clusterAgent.Spec.NsToMonitor = []string{"default"}
+	}
+
+	if clusterAgent.Spec.EventUploadInterval == 0 {
+		clusterAgent.Spec.EventUploadInterval = 10
+	}
+
+	if clusterAgent.Spec.ContainerRegistrationInterval == 0 {
+		clusterAgent.Spec.ContainerRegistrationInterval = 120
+	}
+
+	if clusterAgent.Spec.HttpClientTimeout == 0 {
+		clusterAgent.Spec.HttpClientTimeout = 30
+	}
+
+	// agent-monitoring defaults
+	if clusterAgent.Spec.MetricsSyncInterval == 0 {
+		clusterAgent.Spec.MetricsSyncInterval = 30
+	}
+
+	if clusterAgent.Spec.ClusterMetricsSyncInterval == 0 {
+		clusterAgent.Spec.ClusterMetricsSyncInterval = 60
+	}
+
+	if clusterAgent.Spec.MetadataSyncInterval == 0 {
+		clusterAgent.Spec.MetadataSyncInterval = 60
+	}
+
+	if clusterAgent.Spec.ContainerBatchSize == 0 {
+		clusterAgent.Spec.ContainerBatchSize = 25
+	}
+
+	if clusterAgent.Spec.ContainerParallelRequestLimit == 0 {
+		clusterAgent.Spec.ContainerParallelRequestLimit = 3
+	}
+
+	if clusterAgent.Spec.PodBatchSize == 0 {
+		clusterAgent.Spec.PodBatchSize = 30
+	}
+
+	if clusterAgent.Spec.ContainerFilter.WhitelistedNames == nil &&
+			clusterAgent.Spec.ContainerFilter.BlacklistedNames == nil &&
+			clusterAgent.Spec.ContainerFilter.BlacklistedLabels == nil {
+		clusterAgent.Spec.ContainerFilter = appdynamicsv1alpha1.ClusteragentContainerFilter{
+			BlacklistedLabels: map[string]string{"appdynamics.exclude": "true"},
+		}
+	}
+
+	// logger defaults
+	if clusterAgent.Spec.LogLevel == "" {
+		clusterAgent.Spec.LogLevel = "INFO"
+	}
+
+	if clusterAgent.Spec.LogFileSizeMb == 0 {
+		clusterAgent.Spec.LogFileSizeMb = 5
+	}
+
+	if clusterAgent.Spec.LogFileBackups == 0 {
+		clusterAgent.Spec.LogFileBackups = 3
+	}
+}
+
+func parseFilterField(fieldName string, fieldMap map[string][]string) string {
+	var stringBuilder strings.Builder
+	stringBuilder.WriteString(fmt.Sprintf("  %s: {", fieldName))
+	for key, value := range fieldMap {
+		stringBuilder.WriteString(fmt.Sprintf("%s: %s,", key, strings.Join(value, " ")))
+	}
+	filterString := strings.TrimRight(stringBuilder.String(), ",")
+	return filterString + "}\n"
+}
+
+func createContainerFilterString(clusterAgent *appdynamicsv1alpha1.Clusteragent) string {
+	var containerFilterString strings.Builder
+	if clusterAgent.Spec.ContainerFilter.BlacklistedLabels != nil {
+		var stringBuilder strings.Builder
+		stringBuilder.WriteString("  blacklisted-label: {")
+		for labelKey, labelValue := range clusterAgent.Spec.ContainerFilter.BlacklistedLabels {
+			stringBuilder.WriteString(fmt.Sprintf("%s: %s,", labelKey, labelValue))
+		}
+		blacklistedLabels := strings.TrimRight(stringBuilder.String(), ",")
+		containerFilterString.WriteString(blacklistedLabels + "}\n")
+	}
+
+	if clusterAgent.Spec.ContainerFilter.BlacklistedNames != nil {
+		containerFilterString.WriteString(parseFilterField("blacklisted-names", clusterAgent.Spec.ContainerFilter.BlacklistedNames))
+	}
+
+	if clusterAgent.Spec.ContainerFilter.WhitelistedNames != nil {
+		containerFilterString.WriteString(parseFilterField("whitelisted-names", clusterAgent.Spec.ContainerFilter.WhitelistedNames))
+	}
+
+	return containerFilterString.String()
 }
