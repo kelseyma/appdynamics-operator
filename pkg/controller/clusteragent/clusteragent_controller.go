@@ -448,7 +448,8 @@ func (r *ReconcileClusteragent) ensureLogConfig(clusterAgent *appdynamicsv1alpha
 	yml := fmt.Sprintf(`log-level: %s
 max-filesize-mb: %d
 max-backups: %d
-write-to-stdout: %t`, clusterAgent.Spec.LogLevel, clusterAgent.Spec.LogFileSizeMb, clusterAgent.Spec.LogFileBackups, clusterAgent.Spec.StdoutLogging)
+write-to-stdout: %s`, clusterAgent.Spec.LogLevel, clusterAgent.Spec.LogFileSizeMb, clusterAgent.Spec.LogFileBackups,
+	strings.ToLower(clusterAgent.Spec.StdoutLogging))
 
 	cm := &corev1.ConfigMap{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: AGENT_LOG_CONFIG_NAME, Namespace: clusterAgent.Namespace}, cm)
@@ -714,6 +715,10 @@ func setClusterAgentConfigDefaults(clusterAgent *appdynamicsv1alpha1.Clusteragen
 
 	if clusterAgent.Spec.LogFileBackups == 0 {
 		clusterAgent.Spec.LogFileBackups = 3
+	}
+
+	if clusterAgent.Spec.StdoutLogging == "" {
+		clusterAgent.Spec.StdoutLogging = "true"
 	}
 }
 

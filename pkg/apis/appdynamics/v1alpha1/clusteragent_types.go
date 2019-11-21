@@ -41,7 +41,7 @@ type ClusteragentSpec struct {
 	LogLevel                      string `json:"logLevel,omitempty"`
 	LogFileSizeMb                 int    `json:"logFileSizeMb,omitempty"`
 	LogFileBackups                int    `json:"logFileBackups,omitempty"`
-	StdoutLogging                 bool   `json:"stdoutLogging,omitempty"`
+	StdoutLogging                 string `json:"stdoutLogging,omitempty"`
 	PodEventNumber                int    `json:"podEventNumber,omitempty"`
 	OverconsumptionThreshold      int    `json:"overconsumptionThreshold,omitempty"`
 
