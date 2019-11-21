@@ -379,7 +379,6 @@ func (r *ReconcileClusteragent) ensureAgentConfig(clusterAgent *appdynamicsv1alp
 	cm.Data["APPDYNAMICS_CONTROLLER_SSL_ENABLED"] = sslEnabled
 	cm.Data["APPDYNAMICS_CLUSTER_NAME"] = clusterAgent.Spec.AppName
 
-	cm.Data["APPDYNAMICS_CLUSTER_MONITORED_RESOURCES"] = strings.Join(clusterAgent.Spec.ResourcesToMonitor, ",")
 	cm.Data["APPDYNAMICS_CLUSTER_MONITORED_NAMESPACES"] = strings.Join(clusterAgent.Spec.NsToMonitor, ",")
 	cm.Data["APPDYNAMICS_CLUSTER_EVENT_UPLOAD_INTERVAL"] = strconv.Itoa(clusterAgent.Spec.EventUploadInterval)
 	cm.Data["APPDYNAMICS_CLUSTER_CONTAINER_REGISTRATION_INTERVAL"] = strconv.Itoa(clusterAgent.Spec.ContainerRegistrationInterval)
@@ -655,10 +654,6 @@ func labelsForClusteragent(clusterAgent *appdynamicsv1alpha1.Clusteragent) map[s
 
 func setClusterAgentConfigDefaults(clusterAgent *appdynamicsv1alpha1.Clusteragent) {
 	// bootstrap-config defaults
-	if clusterAgent.Spec.ResourcesToMonitor == nil {
-		clusterAgent.Spec.ResourcesToMonitor = []string{"Pod","ReplicaSet","Deployment","Event"}
-	}
-
 	if clusterAgent.Spec.NsToMonitor == nil {
 		clusterAgent.Spec.NsToMonitor = []string{"default"}
 	}

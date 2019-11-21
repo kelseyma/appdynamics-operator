@@ -55,7 +55,6 @@ type ClusteragentSpec struct {
 	NsToMonitorExclude          []string                    `json:"nsToMonitorExclude,omitempty"`
 	NodesToMonitor              []string                    `json:"nodesToMonitor,omitempty"`
 	NodesToMonitorExclude       []string                    `json:"nodesToMonitorExclude,omitempty"`
-	ResourcesToMonitor          []string                    `json:"resourcesToMonitor,omitempty"`
 	InstrumentRule              []AgentRequest              `json:"instrumentRule,omitempty"`
 	AnalyticsAgentImage         string                      `json:"analyticsAgentImage,omitempty"`
 	AppDJavaAttachImage         string                      `json:"appDJavaAttachImage,omitempty"`

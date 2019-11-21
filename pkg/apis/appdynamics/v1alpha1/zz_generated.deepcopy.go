@@ -476,11 +476,6 @@ func (in *ClusteragentSpec) DeepCopyInto(out *ClusteragentSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.ResourcesToMonitor != nil {
-		in, out := &in.ResourcesToMonitor, &out.ResourcesToMonitor
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.InstrumentRule != nil {
 		in, out := &in.InstrumentRule, &out.InstrumentRule
 		*out = make([]AgentRequest, len(*in))
