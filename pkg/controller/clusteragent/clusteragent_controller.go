@@ -710,7 +710,7 @@ func setClusterAgentConfigDefaults(clusterAgent *appdynamicsv1alpha1.Clusteragen
 	}
 
 	if clusterAgent.Spec.MaxRequestRetryCount == 0 {
-		clusterAgent.Spec.MaxRequestRetryCount = 5
+		clusterAgent.Spec.MaxRequestRetryCount = 3
 	}
 
 	// agent-monitoring defaults
